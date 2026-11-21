@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en" class="h-full" data-system="uvce" data-system-version="0.1.0">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="UVCE is a visual-first browser workspace prototype for input, storage, computation, and output.">
+  <title>UVCE — Universal Visual Computing Environment</title>
+
+  <!-- Runtime styling: Tailwind Browser is for prototyping, not production compilation. -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/SAPTARSHI-coder/EaseMotion-css@main/easemotion.min.css">
+
+  <!-- Alpine plugins must load before Alpine core. They are the single owner of local UI state. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/focus@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/intersect@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/mask@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/morph@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/resize@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/anchor@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- htmx 4 extension family: network features require a real HTTP / WebSocket backend. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.2/dist/htmx.min.js"></script>
+
+  <!-- Iconify is a web component and does not own the application state. -->
+  <script defer src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
+</head>
+<body class="min-h-full bg-slate-950 text-slate-100 antialiased">
+  <div
+    id="uvce-desktop"
+    class="min-h-screen"
+    data-component="desktop"
+    data-operation="input storage compute output"
+    data-interface="gui cui cli"
+    data-runtime-owner="alpine"
+    x-data="{
+      language: $persist('en'),
+      theme: $persist('dark'),
+      activeModule: 'overview',
+      command: '',
+      logs: [
+        { time: 'SYSTEM', text: 'UVCE visual workspace initialized. Demo operations are local simulations.' },
+        { time: 'SECURITY', text: 'No native OS commands or remote services are enabled.' }
+      ],
+      jobs: $persist([
+        { id: 1, name: 'Inspect sample dataset', kind: 'analysis', status: 'ready', detail: 'Local demonstration job' },
+        { id: 2, name: 'Render creative preview', kind: 'graphics', status: 'ready', detail: 'Adapter placeholder; no render engine started' }
+      ]),
+      nextJobId: $persist(3),
+      note: $persist('This workspace stores this note in browser local storage through Alpine Persist.'),
+      valueA: 24,
+      valueB: 18,
+      selectedPipeline: 'input-storage-compute-output',
+      showHelp: false,
+      t(english, japanese) { return this.language === 'ja' ? japanese : english; },
+      addLog(text, type = 'INFO') {
+        this.logs.unshift({ time: type, text: text });
+        this.logs = this.logs.slice(0, 30);
+      },
+      addJob(name, kind = 'workflow') {
+        const cleanName = String(name || 'Untitled task').trim().slice(0, 80);
+        this.jobs.unshift({ id: this.nextJobId++, name: cleanName, kind: kind, status: 'ready', detail: 'Queued locally; execution is simulated in this prototype' });
+        this.addLog('Queued: ' + cleanName, 'QUEUE');
+      },
+      runJob(id) {
+        const job = this.jobs.find(item => item.id === id);
+        if (!job) return;
+        job.status = 'completed';
+        job.detail = 'Demo completed locally. No external compute was invoked.';
+        this.addLog('Demo completed: ' + job.name, 'JOB');
+      },
+      removeJob(id) {
+        this.jobs = this.jobs.filter(item => item.id !== id);
+        this.addLog('Removed job #' + id, 'QUEUE');
+      },
+      executeCommand() {
+        const raw = this.command.trim();
+        if (!raw) return;
+        this.addLog('uvce> ' + raw, 'CLI');
+        const parts = raw.split(/\s+/);
+        const cmd = (parts.shift() || '').toLowerCase();
+        const args = parts;
+        if (cmd === 'help') {
+          this.addLog('Commands: help | status | queue | run <name> | complete <id> | module <name> | language en|ja | theme dark|light | clear', 'HELP');
+        } else if (cmd === 'status') {
+          this.addLog('UI=ready; localStorage=' + (typeof Storage !== 'undefined' ? 'available' : 'unavailable') + '; workers=' + (typeof Worker !== 'undefined' ? 'available' : 'unavailable') + '; GPU=' + (navigator.gpu ? 'available' : 'not exposed'), 'STATUS');
+        } else if (cmd === 'queue') {
+          this.addLog(this.jobs.length + ' local job(s): ' + this.jobs.map(item => '#' + item.id + ' ' + item.name + ' [' + item.status + ']').join(' | '), 'QUEUE');
+        } else if (cmd === 'run') {
+          this.addJob(args.join(' ') || 'CLI demonstration task', 'cli');
+        } else if (cmd === 'complete') {
+          const id = Number(args[0]);
+          if (Number.isInteger(id)) this.runJob(id); else this.addLog('Usage: complete <numeric-id>', 'ERROR');
+        } else if (cmd === 'module') {
+          const name = (args[0] || '').toLowerCase();
+          const allowed = ['overview', 'input', 'storage', 'computation', 'output', 'creative', 'system', 'integrations'];
+          if (allowed.includes(name)) { this.activeModule = name; this.addLog('Opened module: ' + name, 'NAV'); }
+          else this.addLog('Unknown module. Available: ' + allowed.join(', '), 'ERROR');
+        } else if (cmd === 'language' && ['en', 'ja'].includes((args[0] || '').toLowerCase())) {
+          this.language = args[0].toLowerCase(); this.addLog('Language set to ' + this.language, 'SETTINGS');
+        } else if (cmd === 'theme' && ['dark', 'light'].includes((args[0] || '').toLowerCase())) {
+          this.theme = args[0].toLowerCase(); this.addLog('Theme set to ' + this.theme, 'SETTINGS');
+        } else if (cmd === 'clear') {
+          this.logs = [];
+        } else {
+          this.addLog('Unknown command. Enter help to see the safe command list.', 'ERROR');
+        }
+        this.command = '';
+      }
+    }"
+    :class="theme === 'light' ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100'"
+    :lang="language"
+  >
+    <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
+      <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-3 lg:px-6">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/20 text-violet-300 ring-1 ring-violet-400/30">
+            <iconify-icon icon="solar:atom-bold-duotone" width="25"></iconify-icon>
+          </div>
+          <div class="min-w-0">
+            <div class="truncate text-sm font-bold tracking-[0.18em] text-white">UVCE <span class="font-normal tracking-normal text-slate-400">/ Visual Computing Environment</span></div>
+            <div class="text-[11px] uppercase tracking-[0.22em] text-slate-500">Browser workspace · prototype 0.1.0</div>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span class="hidden rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300 sm:inline-flex">Local session</span>
+          <button type="button" class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-violet-400 hover:text-white" @click="language = language === 'en' ? 'ja' : 'en'" :aria-label="t('Switch language','言語を切り替え')">
+            <span x-text="language === 'en' ? '日本語' : 'English'"></span>
+          </button>
+          <button type="button" class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-violet-400 hover:text-white" @click="theme = theme === 'dark' ? 'light' : 'dark'" :aria-label="t('Toggle appearance','表示テーマを切り替え')">
+            <iconify-icon :icon="theme === 'dark' ? 'solar:sun-2-bold' : 'solar:moon-bold'" width="16"></iconify-icon>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="mx-auto grid max-w-[1600px] grid-cols-1 gap-4 px-4 py-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-6">
+      <aside class="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 shadow-2xl shadow-black/10">
+        <div class="px-3 pb-3 pt-2 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500" x-text="t('Workspace','ワークスペース')"></div>
+        <nav aria-label="Main navigation" class="grid grid-cols-2 gap-1 lg:grid-cols-1">
+          <template x-for="item in [
+            {id:'overview',en:'Overview',ja:'概要',icon:'solar:widget-5-bold-duotone'},
+            {id:'input',en:'Input',ja:'入力',icon:'solar:keyboard-bold-duotone'},
+            {id:'storage',en:'Storage',ja:'ストレージ',icon:'solar:database-bold-duotone'},
+            {id:'computation',en:'Computation',ja:'計算',icon:'solar:cpu-bolt-bold-duotone'},
+            {id:'output',en:'Output',ja:'出力',icon:'solar:chart-square-bold-duotone'},
+            {id:'creative',en:'Creative studio',ja:'クリエイティブ',icon:'solar:palette-bold-duotone'},
+            {id:'system',en:'System control',ja:'システム管理',icon:'solar:settings-bold-duotone'},
+            {id:'integrations',en:'Integrations',ja:'統合カタログ',icon:'solar:layers-bold-duotone'}
+          ]" :key="item.id">
+            <button type="button" @click="activeModule = item.id" :aria-current="activeModule === item.id ? 'page' : null" :class="activeModule === item.id ? 'bg-violet-500/15 text-violet-200 ring-1 ring-violet-400/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'" class="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition">
+              <iconify-icon :icon="item.icon" width="19" class="shrink-0"></iconify-icon>
+              <span x-text="language === 'ja' ? item.ja : item.en"></span>
+            </button>
+          </template>
+        </nav>
+        <div class="mt-5 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+          <div class="flex items-center justify-between text-xs font-semibold text-slate-300">
+            <span x-text="t('Runtime health','ランタイム状態')"></span>
+            <span class="text-emerald-400">READY</span>
+          </div>
+          <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div class="h-full w-4/5 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400"></div></div>
+          <p class="mt-2 text-[11px] leading-5 text-slate-500" x-text="t('UI runtime ready. Compute adapters are opt-in.','UIランタイムは準備完了。計算アダプターは個別に有効化します。')"></p>
+        </div>
+        <div class="mt-4 flex items-center justify-between px-2 text-[10px] uppercase tracking-wider text-slate-600"><span>UVCE</span><span>Build 0.1.0</span></div>
+      </aside>
+
+      <main class="min-w-0 space-y-4">
+        <section x-bind:hidden="activeModule !== 'overview'" id="module-overview" data-component="dashboard" class="space-y-4">
+          <div class="overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-violet-950 via-slate-900 to-cyan-950 p-5 shadow-xl sm:p-7">
+            <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <div class="max-w-3xl">
+                <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-violet-200"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Visual-first computing</div>
+                <h1 class="text-3xl font-semibold tracking-tight text-white sm:text-4xl" x-text="t('One workspace. Four universal layers.','ひとつのワークスペース、4つの基本レイヤー。')"></h1>
+                <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300" x-text="t('Connect inputs, storage, computation, and outputs through visual modules. This prototype demonstrates the interface, local state, and safe workflow model.','入力・保存・計算・出力をビジュアルモジュールで接続します。このプロトタイプは画面、ローカル状態、安全なワークフローを実演します。')"></p>
+              </div>
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button type="button" class="rounded-xl bg-violet-400 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-lg shadow-violet-950/40 transition hover:bg-violet-300" @click="addJob('Universal workflow demonstration','workflow')"><iconify-icon icon="solar:play-bold" class="mr-1" width="14"></iconify-icon><span x-text="t('Run demo workflow','デモを実行')"></span></button>
+                <button type="button" class="rounded-xl border border-slate-600 bg-slate-900/40 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800" @click="activeModule = 'integrations'" x-text="t('Explore integrations','統合機能を見る')"></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <template x-for="card in [
+              {id:'input',name:'Input',ja:'入力',desc:'Capture and import',descJa:'取得とインポート',icon:'solar:login-3-bold-duotone',tone:'cyan'},
+              {id:'storage',name:'Storage',ja:'ストレージ',desc:'Persist and organize',descJa:'保存と整理',icon:'solar:database-bold-duotone',tone:'blue'},
+              {id:'computation',name:'Computation',ja:'計算',desc:'Transform and simulate',descJa:'変換とシミュレーション',icon:'solar:cpu-bolt-bold-duotone',tone:'violet'},
+              {id:'output',name:'Output',ja:'出力',desc:'Visualize and create',descJa:'可視化と制作',icon:'solar:export-bold-duotone',tone:'emerald'}
+            ]" :key="card.id">
+              <button type="button" @click="activeModule = card.id" class="group rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-900">
+                <div class="flex items-center justify-between">
+                  <span class="rounded-xl bg-slate-800 p-2.5 text-cyan-300"><iconify-icon :icon="card.icon" width="22"></iconify-icon></span>
+                  <iconify-icon icon="solar:arrow-right-up-linear" class="text-slate-600 transition group-hover:text-white" width="17"></iconify-icon>
+                </div>
+                <div class="mt-4 text-base font-semibold text-white" x-text="language === 'ja' ? card.ja : card.name"></div>
+                <div class="mt-1 text-xs text-slate-500" x-text="language === 'ja' ? card.descJa : card.desc"></div>
+              </button>
+            </template>
+          </div>
+
+          <div class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+            <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5" aria-labelledby="pipeline-title">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">Workflow canvas</div><h2 id="pipeline-title" class="mt-1 text-lg font-semibold text-white" x-text="t('Universal data pipeline','ユニバーサル・データパイプライン')"></h2></div>
+                <span class="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] uppercase tracking-wider text-slate-400">Declarative model</span>
+              </div>
+              <div class="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
+                <template x-for="(node,index) in [
+                  {name:'Input',ja:'入力',icon:'solar:import-bold',detail:'Capture'},
+                  {name:'Storage',ja:'保存',icon:'solar:database-bold',detail:'Persist'},
+                  {name:'Compute',ja:'計算',icon:'solar:cpu-bolt-bold',detail:'Transform'},
+                  {name:'Output',ja:'出力',icon:'solar:export-bold',detail:'Present'}
+                ]" :key="node.name">
+                  <div class="relative rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-center">
+                    <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300"><iconify-icon :icon="node.icon" width="21"></iconify-icon></div>
+                    <div class="mt-2 text-sm font-semibold text-slate-100" x-text="language === 'ja' ? node.ja : node.name"></div>
+                    <div class="mt-1 text-[10px] uppercase tracking-widest text-slate-600" x-text="node.detail"></div>
+                    <div x-bind:hidden="index >= 3" class="absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-slate-500 md:block"><iconify-icon icon="solar:arrow-right-linear" width="17"></iconify-icon></div>
+                  </div>
+                </template>
+              </div>
+              <p class="mt-4 text-xs leading-5 text-slate-500" x-text="t('Connections describe the intended data flow. A real connector must validate, execute, and return data before a pipeline is considered operational.','接続線はデータフローの設計を表します。実際の処理にはコネクターによる検証・実行・結果返却が必要です。')"></p>
+            </section>
+            <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
+              <div class="flex items-center justify-between"><div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Local runtime</div><h2 class="mt-1 text-lg font-semibold text-white" x-text="t('Browser capabilities','ブラウザー機能')"></h2></div><iconify-icon icon="solar:shield-check-bold-duotone" class="text-emerald-400" width="25"></iconify-icon></div>
+              <div class="mt-4 space-y-3 text-xs">
+                <div class="flex items-center justify-between gap-3"><span class="text-slate-400">Web Workers</span><span :class="typeof Worker !== 'undefined' ? 'text-emerald-300' : 'text-amber-300'" x-text="typeof Worker !== 'undefined' ? 'Available' : 'Unavailable'"></span></div>
+                <div class="flex items-center justify-between gap-3"><span class="text-slate-400">IndexedDB</span><span :class="typeof indexedDB !== 'undefined' ? 'text-emerald-300' : 'text-amber-300'" x-text="typeof indexedDB !== 'undefined' ? 'Available' : 'Unavailable'"></span></div>
+                <div class="flex items-center justify-between gap-3"><span class="text-slate-400">Web Audio</span><span :class="typeof AudioContext !== 'undefined' ? 'text-emerald-300' : 'text-amber-300'" x-text="typeof AudioContext !== 'undefined' ? 'Available' : 'Unavailable'"></span></div>
+                <div class="flex items-center justify-between gap-3"><span class="text-slate-400">WebGPU</span><span :class="navigator.gpu ? 'text-emerald-300' : 'text-amber-300'" x-text="navigator.gpu ? 'Exposed' : 'Not exposed'"></span></div>
+                <div class="flex items-center justify-between gap-3"><span class="text-slate-400">Camera / microphone API</span><span :class="navigator.mediaDevices ? 'text-emerald-300' : 'text-amber-300'" x-text="navigator.mediaDevices ? 'Available with permission' : 'Unavailable'"></span></div>
+              </div>
+              <p class="mt-4 border-t border-slate-800 pt-3 text-[11px] leading-5 text-slate-500">Capability detection is not a benchmark and does not imply permission, model availability, or sufficient hardware resources.</p>
+            </section>
+          </div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'input'" id="module-input" data-component="input" class="space-y-4">
+          <div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Layer 01</div><h1 class="mt-1 text-2xl font-semibold text-white" x-text="t('Input systems','入力システム')"></h1><p class="mt-2 text-sm text-slate-400" x-text="t('Bring user actions, media, files, sensors, and external data into a controlled workspace.','ユーザー操作、メディア、ファイル、センサー、外部データをワークスペースに取り込みます。')"></p></div><span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">Permission-aware</span></div>
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:keyboard-bold-duotone" width="26" class="text-cyan-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Keyboard and pointer</h2><p class="mt-2 text-xs leading-5 text-slate-400">Keyboard, mouse, touch, stylus, drag-and-drop, and accessible focus navigation.</p><span class="mt-4 inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">Browser-native</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:camera-bold-duotone" width="26" class="text-cyan-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Camera and microphone</h2><p class="mt-2 text-xs leading-5 text-slate-400">Media capture through getUserMedia after a secure-context check and explicit permission.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300">Adapter not mounted</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:folder-open-bold-duotone" width="26" class="text-cyan-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Files and folders</h2><p class="mt-2 text-xs leading-5 text-slate-400">Use file input, drag-and-drop, or supported File System Access APIs with user selection.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300">Picker workflow required</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:hand-stars-bold-duotone" width="26" class="text-cyan-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Gesture and vision</h2><p class="mt-2 text-xs leading-5 text-slate-400">MediaPipe Tasks can process camera frames when model assets, permission, and a compatible runtime are supplied.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300">Model + adapter required</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:accessibility-bold-duotone" width="26" class="text-cyan-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Accessible input</h2><p class="mt-2 text-xs leading-5 text-slate-400">Keyboard-first operation, semantic controls, screen-reader labels, text alternatives, and future Braille device adapters.</p><span class="mt-4 inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">Semantic UI baseline</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:cloud-download-bold-duotone" width="26" class="text-cyan-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Network and external data</h2><p class="mt-2 text-xs leading-5 text-slate-400">HTTP, SSE, or WebSocket adapters require explicitly configured endpoints, authentication, and origin policy.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300">Backend required</span></article>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><h2 class="font-semibold text-white">Input configuration</h2><div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs text-slate-400">Input label<input class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400" placeholder="e.g. Camera stream" x-model="selectedPipeline"></label><label class="text-xs text-slate-400">Input channel<select class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400"><option>Keyboard / pointer</option><option>File import</option><option>Camera / microphone</option><option>Network stream</option><option>Sensor / gesture</option></select></label></div><p class="mt-3 text-[11px] text-slate-500">This form records a visual configuration choice only; no device or external endpoint is activated.</p></div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'storage'" id="module-storage" data-component="storage" class="space-y-4">
+          <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-300">Layer 02</div><h1 class="mt-1 text-2xl font-semibold text-white" x-text="t('Storage systems','ストレージシステム')"></h1><p class="mt-2 text-sm text-slate-400" x-text="t('Persist preferences and project notes locally; add database and file adapters when needed.','設定やプロジェクトメモをローカルに保存し、必要に応じてデータベースやファイルのアダプターを追加します。')"></p></div>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">LocalStorage</div><div class="mt-2 text-lg font-semibold text-emerald-300">Active</div><div class="mt-1 text-[11px] text-slate-500">Theme, language, jobs, note</div></div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">IndexedDB</div><div class="mt-2 text-lg font-semibold text-amber-300">Available API</div><div class="mt-1 text-[11px] text-slate-500">Adapter not implemented</div></div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">sql.js</div><div class="mt-2 text-lg font-semibold text-amber-300">Optional</div><div class="mt-1 text-[11px] text-slate-500">WASM init and SQL API required</div></div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">File System Access</div><div class="mt-2 text-lg font-semibold text-amber-300">Permission-gated</div><div class="mt-1 text-[11px] text-slate-500">Browser support varies</div></div>
+          </div>
+          <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="font-semibold text-white">Persistent project note</h2><p class="mt-1 text-xs text-slate-500">Saved in this browser profile by the Alpine Persist plugin.</p></div><span class="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">LOCAL ONLY</span></div><textarea x-model="note" rows="5" class="mt-4 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm leading-6 text-slate-200 outline-none focus:border-blue-400" aria-label="Persistent project note"></textarea><div class="mt-2 flex items-center justify-between text-[11px] text-slate-500"><span x-text="note.length + ' characters'"></span><span>Stored by browser local storage</span></div></section>
+          <div class="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-5 text-amber-100/80"><strong class="text-amber-200">Storage limitation:</strong> browser storage is quota-managed, user-clearable, and not a backup. Important data needs an export/backup workflow and, for cross-device sync, a trusted service.</div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'computation'" id="module-computation" data-component="computation" class="space-y-4">
+          <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">Layer 03</div><h1 class="mt-1 text-2xl font-semibold text-white" x-text="t('Computation engine','計算エンジン')"></h1><p class="mt-2 text-sm text-slate-400" x-text="t('Configure safe local workflows and inspect which compute primitives the browser exposes.','安全なローカルワークフローを構成し、ブラウザーが公開する計算機能を確認します。')"></p></div>
+          <div class="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+            <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><div class="text-xs font-semibold uppercase tracking-wider text-violet-300">Interactive arithmetic node</div><h2 class="mt-2 text-lg font-semibold text-white">Visual calculator</h2><p class="mt-1 text-xs text-slate-500">A real local calculation using declarative Alpine bindings.</p><div class="mt-5 grid grid-cols-2 gap-3"><label class="text-xs text-slate-400">Value A<input type="number" x-model.number="valueA" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-lg text-white outline-none focus:border-violet-400"></label><label class="text-xs text-slate-400">Value B<input type="number" x-model.number="valueB" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-lg text-white outline-none focus:border-violet-400"></label></div><div class="mt-4 rounded-xl border border-violet-400/20 bg-violet-400/10 p-4"><div class="text-[10px] font-bold uppercase tracking-widest text-violet-200">A + B</div><div class="mt-1 text-3xl font-semibold text-white" x-text="(Number(valueA) || 0) + (Number(valueB) || 0)"></div></div><button type="button" @click="addJob('Calculate ' + valueA + ' + ' + valueB,'math')" class="mt-4 w-full rounded-xl bg-violet-400 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-violet-300">Add calculation job</button></section>
+            <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><h2 class="font-semibold text-white">Compute adapter map</h2><div class="mt-4 space-y-3">
+              <div class="flex items-start justify-between gap-4 border-b border-slate-800 pb-3"><div><div class="text-sm font-medium text-slate-200">Web Workers</div><div class="mt-1 text-xs text-slate-500">Background JavaScript execution; worker source and message protocol required.</div></div><span class="shrink-0 text-[10px] font-semibold text-emerald-300">Browser API</span></div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-800 pb-3"><div><div class="text-sm font-medium text-slate-200">WebAssembly</div><div class="mt-1 text-xs text-slate-500">Compile supported workloads; memory and threading limits still apply.</div></div><span class="shrink-0 text-[10px] font-semibold text-emerald-300">Browser API</span></div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-800 pb-3"><div><div class="text-sm font-medium text-slate-200">WebGL / WebGPU</div><div class="mt-1 text-xs text-slate-500">GPU-accelerated graphics and selected compute workloads, subject to device support.</div></div><span class="shrink-0 text-[10px] font-semibold text-amber-300">Device-dependent</span></div>
+              <div class="flex items-start justify-between gap-4 border-b border-slate-800 pb-3"><div><div class="text-sm font-medium text-slate-200">Large-scale / distributed compute</div><div class="mt-1 text-xs text-slate-500">Requires remote workers, orchestration, quotas, authentication, and result validation.</div></div><span class="shrink-0 text-[10px] font-semibold text-amber-300">Backend required</span></div>
+              <div class="flex items-start justify-between gap-4"><div><div class="text-sm font-medium text-slate-200">Prediction and simulation</div><div class="mt-1 text-xs text-slate-500">Requires explicit model, algorithm, dataset, evaluation, and resource budget.</div></div><span class="shrink-0 text-[10px] font-semibold text-amber-300">Model required</span></div>
+            </div></section>
+          </div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'output'" id="module-output" data-component="output" class="space-y-4">
+          <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">Layer 04</div><h1 class="mt-1 text-2xl font-semibold text-white" x-text="t('Output and publishing','出力と公開')"></h1><p class="mt-2 text-sm text-slate-400" x-text="t('Turn validated results into accessible views, media, and portable artifacts.','検証済みの結果をアクセシブルな画面、メディア、持ち運び可能な成果物に変換します。')"></p></div>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:chart-2-bold-duotone" width="27" class="text-emerald-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Data dashboards</h2><p class="mt-2 text-xs leading-5 text-slate-400">Charts, tables, indicators, and reports from validated datasets.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-300">Chart adapter needed</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:music-note-4-bold-duotone" width="27" class="text-emerald-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Music and sound</h2><p class="mt-2 text-xs leading-5 text-slate-400">Tone.js for browser synthesis; SuperCollider.js requires a running SuperCollider server.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-300">Audio adapter needed</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:clapperboard-play-bold-duotone" width="27" class="text-emerald-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Video production</h2><p class="mt-2 text-xs leading-5 text-slate-400">Media capture, timeline composition, codecs, and export pipeline.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-300">Media pipeline needed</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:gallery-bold-duotone" width="27" class="text-emerald-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Images and graphics</h2><p class="mt-2 text-xs leading-5 text-slate-400">Canvas, p5.js, Three.js, WebGL, and image processing adapters.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-300">Graphics adapter needed</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:pen-new-square-bold-duotone" width="27" class="text-emerald-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Poetry and text</h2><p class="mt-2 text-xs leading-5 text-slate-400">Writing surfaces, accessible typography, language tools, and export formats.</p><span class="mt-4 inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] text-emerald-300">UI foundation ready</span></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><iconify-icon icon="solar:folder-check-bold-duotone" width="27" class="text-emerald-300"></iconify-icon><h2 class="mt-3 font-semibold text-white">Reports and exports</h2><p class="mt-2 text-xs leading-5 text-slate-400">CSV, JSON, PDF, image, and project-package export adapters.</p><span class="mt-4 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] text-amber-300">Export adapter needed</span></article>
+          </div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'creative'" id="module-creative" data-component="creative-studio" class="space-y-4">
+          <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-fuchsia-300">Creative studio</div><h1 class="mt-1 text-2xl font-semibold text-white">Create with connected media tools</h1><p class="mt-2 text-sm text-slate-400">A modular studio shell for audio, graphics, vision, text, and live performance workflows.</p></div>
+          <div class="grid gap-4 xl:grid-cols-2">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><div class="flex items-center gap-3"><span class="rounded-xl bg-fuchsia-500/10 p-3 text-fuchsia-300"><iconify-icon icon="solar:music-note-4-bold-duotone" width="24"></iconify-icon></span><div><h2 class="font-semibold text-white">Audio laboratory</h2><p class="text-xs text-slate-500">Tone.js · SuperCollider.js</p></div></div><div class="mt-4 rounded-xl border border-slate-800 bg-slate-950 p-4"><div class="flex h-16 items-end gap-1" aria-label="Decorative audio waveform"><template x-for="barClass in ['h-6','h-9','h-7','h-12','h-8','h-14','h-10','h-6','h-11','h-8','h-13','h-6','h-9','h-7','h-12','h-5','h-10','h-8','h-14','h-6','h-10','h-7','h-11','h-6']" :key="barClass + '-' + $index"><span class="flex-1 rounded-t-sm bg-gradient-to-t from-fuchsia-700 to-cyan-300 opacity-80" :class="barClass"></span></template></div><p class="mt-3 text-[10px] text-slate-500">Illustrative waveform only — no audio is generated in this prototype.</p></div><button type="button" @click="addJob('Prepare audio adapter configuration','audio')" class="mt-4 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-fuchsia-400">Prepare audio workflow</button></div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><div class="flex items-center gap-3"><span class="rounded-xl bg-cyan-500/10 p-3 text-cyan-300"><iconify-icon icon="solar:box-minimalistic-bold-duotone" width="24"></iconify-icon></span><div><h2 class="font-semibold text-white">Visual laboratory</h2><p class="text-xs text-slate-500">WebGL · p5.js · Three.js · MediaPipe</p></div></div><div class="mt-4 flex aspect-video items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-900/50 via-slate-950 to-slate-950"><div class="relative flex h-32 w-32 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/5 shadow-[0_0_70px_rgba(34,211,238,0.15)]"><div class="absolute inset-3 rounded-full border border-violet-300/40"></div><div class="absolute inset-0 animate-spin rounded-full border-t-2 border-cyan-300"></div><iconify-icon icon="solar:atom-bold-duotone" width="48" class="text-cyan-200"></iconify-icon></div></div><p class="mt-3 text-[10px] text-slate-500">CSS illustration; the WebGL and vision renderers are documented adapters, not mounted engines.</p><button type="button" @click="addJob('Prepare visual renderer adapter','graphics')" class="mt-4 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-cyan-400">Prepare graphics workflow</button></div>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><h2 class="font-semibold text-white">Creative workflow templates</h2><div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><button type="button" @click="addJob('Compose generative audio','audio')" class="rounded-xl border border-slate-700 p-3 text-left text-xs text-slate-300 hover:border-fuchsia-400">Audio composition</button><button type="button" @click="addJob('Build 3D scene','graphics')" class="rounded-xl border border-slate-700 p-3 text-left text-xs text-slate-300 hover:border-cyan-400">3D scene</button><button type="button" @click="addJob('Analyze gesture stream','vision')" class="rounded-xl border border-slate-700 p-3 text-left text-xs text-slate-300 hover:border-violet-400">Gesture analysis</button><button type="button" @click="addJob('Draft poetry composition','text')" class="rounded-xl border border-slate-700 p-3 text-left text-xs text-slate-300 hover:border-emerald-400">Poetry composition</button></div></div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'system'" id="module-system" data-component="system-control" class="space-y-4">
+          <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300">System control</div><h1 class="mt-1 text-2xl font-semibold text-white">Workspace management</h1><p class="mt-2 text-sm text-slate-400">Manage browser-level preferences and inspect application status. Native operating-system controls are out of scope for a web page.</p></div>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">Appearance</div><div class="mt-2 text-sm font-semibold text-white" x-text="theme === 'dark' ? 'Dark theme' : 'Light theme'"></div><button type="button" @click="theme = theme === 'dark' ? 'light' : 'dark'" class="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Toggle theme</button></div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">Language</div><div class="mt-2 text-sm font-semibold text-white" x-text="language === 'en' ? 'English' : '日本語'"></div><button type="button" @click="language = language === 'en' ? 'ja' : 'en'" class="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Switch language</button></div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4"><div class="text-xs text-slate-500">Job queue</div><div class="mt-2 text-sm font-semibold text-white" x-text="jobs.length + ' local job(s)'"></div><button type="button" @click="activeModule = 'overview'" class="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">View dashboard</button></div>
+          </div>
+          <div class="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5"><h2 class="font-semibold text-amber-200">Native OS boundary</h2><p class="mt-2 text-xs leading-6 text-amber-100/75">A browser page cannot silently change system power settings, install applications, enumerate unrestricted folders, manage operating-system processes, or run arbitrary shell commands. Use a trusted native companion application or managed enterprise integration for those functions, with explicit user authorization.</p></div>
+        </section>
+
+        <section hidden x-bind:hidden="activeModule !== 'integrations'" id="module-integrations" data-component="integration-registry" class="space-y-4">
+          <div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">Component registry</div><h1 class="mt-1 text-2xl font-semibold text-white">Technology integration catalogue</h1><p class="mt-2 text-sm text-slate-400">Every requested technology is accounted for in the architecture. Runtime ownership is isolated; not every library is loaded or initialized on this page.</p></div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><h2 class="font-semibold text-white">Primary interactive layer</h2><p class="mt-2 text-xs leading-5 text-slate-400">Alpine.js owns local state for this prototype. HTMX is reserved for server-rendered hypermedia requests. Datastar is an alternative reactive layer, not an additional owner for the same DOM subtree.</p><div class="mt-3 flex flex-wrap gap-2"><span class="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-300">Alpine active</span><span class="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">HTMX backend-dependent</span><span class="rounded-full bg-slate-800 px-2 py-1 text-[10px] text-slate-300">Datastar optional</span></div></article>
+            <article class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5"><h2 class="font-semibold text-white">Visual and media engines</h2><p class="mt-2 text-xs leading-5 text-slate-400">WebGL is a browser API. p5.js, Three.js, MediaPipe, and Tone.js are optional focused engines. Processing.js is retired; SuperCollider.js requires a separate SuperCollider runtime/server.</p><div class="mt-3 flex flex-wrap gap-2"><span class="rounded-full bg-slate-800 px-2 py-1 text-[10px] text-slate-300">Adapter catalogue</span><span class="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">Not mounted</span></div></article>
+          </div>
+          <div class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80">
+            <div class="border-b border-slate-800 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Registry entries · grouped in README</div>
+            <div class="grid gap-px bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">HTMX / htmx 4 extensions</div><div class="mt-1 text-[11px] text-slate-500">Network hypermedia adapter</div><span class="mt-2 inline-block text-[10px] text-amber-300">Server required</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">Alpine.js + 9 plugins</div><div class="mt-1 text-[11px] text-slate-500">Local declarative state</div><span class="mt-2 inline-block text-[10px] text-emerald-300">Active</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">Datastar / Unpoly / Stimulus / Turbo</div><div class="mt-1 text-[11px] text-slate-500">Alternative interaction adapters</div><span class="mt-2 inline-block text-[10px] text-slate-400">Isolated option</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">Vue / Petite-Vue / hyperscript</div><div class="mt-1 text-[11px] text-slate-500">Alternative component runtimes</div><span class="mt-2 inline-block text-[10px] text-slate-400">Isolated option</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">CSS and animation families</div><div class="mt-1 text-[11px] text-slate-500">Theme and presentation alternatives</div><span class="mt-2 inline-block text-[10px] text-slate-400">Choose one owner</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">PyScript / php.js / sql.js</div><div class="mt-1 text-[11px] text-slate-500">Language and data adapters</div><span class="mt-2 inline-block text-[10px] text-amber-300">Runtime setup required</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">MediaPipe / p5.js / Three.js</div><div class="mt-1 text-[11px] text-slate-500">Vision and graphics adapters</div><span class="mt-2 inline-block text-[10px] text-amber-300">Assets / renderer required</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">Tone.js / SuperCollider.js</div><div class="mt-1 text-[11px] text-slate-500">Audio synthesis adapters</div><span class="mt-2 inline-block text-[10px] text-amber-300">Audio runtime required</span></div>
+              <div class="bg-slate-900 p-4"><div class="text-xs font-semibold text-white">VS Code / Emmet / IntelliSense</div><div class="mt-1 text-[11px] text-slate-500">Authoring-time tools</div><span class="mt-2 inline-block text-[10px] text-slate-400">IDE only</span></div>
+            </div>
+          </div>
+          <p class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-xs leading-5 text-slate-500">See <code class="text-slate-300">/README.md</code> for the complete inventory, official documentation links, version notes, conflict rules, and per-technology integration status.</p>
+        </section>
+
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5" aria-labelledby="job-title" id="job-manager" data-component="job-manager">
+          <div class="flex flex-wrap items-center justify-between gap-3"><div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">Orchestration</div><h2 id="job-title" class="mt-1 text-lg font-semibold text-white" x-text="t('Job management and scheduling','ジョブ管理とスケジューリング')"></h2><p class="mt-1 text-xs text-slate-500" x-text="t('Local demonstration queue; jobs do not invoke remote or native compute.','ローカルのデモ用キューです。リモート計算やネイティブ計算は実行しません。')"></p></div><button type="button" @click="addJob('New visual workflow','workflow')" class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-violet-400">+ <span x-text="t('Add job','ジョブを追加')"></span></button></div>
+          <div class="mt-4 space-y-2">
+            <template x-for="job in jobs" :key="job.id">
+              <div class="flex flex-col justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:flex-row sm:items-center">
+                <div class="flex min-w-0 items-center gap-3"><div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-violet-300"><iconify-icon icon="solar:widget-2-bold-duotone" width="19"></iconify-icon></div><div class="min-w-0"><div class="truncate text-sm font-medium text-slate-200" x-text="job.name"></div><div class="mt-1 text-[10px] text-slate-500"><span x-text="'#' + job.id + ' · ' + job.kind"></span><span> · </span><span x-text="job.detail"></span></div></div></div>
+                <div class="flex shrink-0 items-center gap-2"><span class="rounded-full px-2.5 py-1 text-[10px] font-semibold" :class="job.status === 'completed' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'" x-text="job.status"></span><button type="button" @click="runJob(job.id)" :disabled="job.status === 'completed'" class="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[10px] font-semibold text-slate-300 hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">Complete demo</button><button type="button" @click="removeJob(job.id)" class="rounded-lg px-2 py-1.5 text-[10px] text-slate-500 hover:bg-slate-800 hover:text-white" :aria-label="'Remove job ' + job.id">Remove</button></div>
+              </div>
+            </template>
+            <div hidden x-bind:hidden="jobs.length !== 0" class="rounded-xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-500">No jobs in the local queue.</div>
+          </div>
+        </section>
+
+        <section class="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5" id="command-console" data-component="cli">
+            <div class="flex items-center justify-between"><div><div class="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">CLI</div><h2 class="mt-1 font-semibold text-white">Safe command console</h2></div><span class="rounded-full border border-slate-700 px-2 py-1 text-[10px] text-slate-500">Allow-listed commands</span></div>
+            <form class="mt-4 flex gap-2" @submit.prevent="executeCommand()"><label class="sr-only" for="cli-input">Enter a UVCE command</label><div class="flex min-w-0 flex-1 items-center rounded-xl border border-slate-700 bg-slate-950 px-3"><span class="mr-2 text-xs font-bold text-emerald-400">uvce&gt;</span><input id="cli-input" x-ref="cliInput" x-model="command" autocomplete="off" spellcheck="false" class="min-w-0 flex-1 bg-transparent py-3 text-sm text-white outline-none placeholder:text-slate-600" placeholder="help, status, queue, run demo"></div><button type="submit" class="rounded-xl bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300">Run</button></form>
+            <div class="mt-3 flex flex-wrap gap-2"><button type="button" @click="command='help'; executeCommand()" class="rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:text-white">help</button><button type="button" @click="command='status'; executeCommand()" class="rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:text-white">status</button><button type="button" @click="command='queue'; executeCommand()" class="rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:text-white">queue</button></div>
+            <div class="mt-4 max-h-52 space-y-2 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 p-3" role="log" aria-live="polite"><template x-for="(entry,index) in logs" :key="index"><div class="text-[11px] leading-5"><span class="mr-2 font-bold text-cyan-500" x-text="'[' + entry.time + ']' "></span><span class="break-words text-slate-400" x-text="entry.text"></span></div></template><div hidden x-bind:hidden="logs.length !== 0" class="text-[11px] text-slate-600">Console cleared.</div></div>
+            <p class="mt-3 text-[10px] leading-5 text-slate-600">This console accepts only the documented UVCE commands. It is not a shell and never evaluates operating-system commands or arbitrary JavaScript.</p>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5" id="cui-panel" data-component="cui">
+            <div class="text-[10px] font-bold uppercase tracking-[0.2em] text-fuchsia-300">CUI</div><h2 class="mt-1 font-semibold text-white">Guided operation</h2><p class="mt-1 text-xs leading-5 text-slate-500">Configure a workflow using labels and controls instead of memorizing commands.</p>
+            <div class="mt-4 space-y-3"><label class="block text-xs text-slate-400">Workflow name<input id="guided-workflow-name" x-ref="guidedName" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-400" value="Guided visual workflow"></label><label class="block text-xs text-slate-400">Operation<select x-ref="guidedKind" class="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-400"><option value="workflow">Input → Storage → Compute → Output</option><option value="analysis">Data analysis</option><option value="graphics">Visual rendering</option><option value="audio">Audio composition</option><option value="simulation">Simulation</option></select></label><button type="button" @click="addJob($refs.guidedName.value, $refs.guidedKind.value)" class="w-full rounded-xl bg-fuchsia-400 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-fuchsia-300">Add configured workflow</button></div>
+          </div>
+        </section>
+
+        <footer class="flex flex-col justify-between gap-2 border-t border-slate-800 px-1 py-4 text-[10px] text-slate-600 sm:flex-row"><span>UVCE · Universal Visual Computing Environment · Prototype 0.1.0</span><span>Two-file architecture · Browser sandbox · No native OS privileges</span></footer>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
